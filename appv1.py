@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 from st_aggrid import AgGrid, GridOptionsBuilder
@@ -102,20 +101,32 @@ if selected_service:
 
 st.title("BW/4HANA OData Data Analysis")
 
-# Function to fetch data from selected OData service
+# Function to fetch data from selected OData service (returns XML and parses it)
 def fetch_service_data(hostname, port, service_name, entity_set, username, password, ssl_verify):
     service_url = f"https://{hostname}:{port}/sap/opu/odata/sap/{service_name}/{entity_set}"
     try:
         response = requests.get(
             service_url,
             auth=HTTPBasicAuth(username, password),
-            headers={"Accept": "application/json"},
+            headers={"Accept": "application/xml"},
             verify=ssl_verify
         )
         response.raise_for_status()
-        data = response.json()
-        df = pd.json_normalize(data['d']['results'])
+
+        root = ET.fromstring(response.content)
+        namespaces = {'atom': 'http://www.w3.org/2005/Atom',
+                      'd': 'http://schemas.microsoft.com/ado/2007/08/dataservices'}
+
+        data_records = []
+        for entry in root.findall('atom:entry', namespaces):
+            record = {}
+            for field in entry.findall('.//d:*', namespaces):
+                record[field.tag.split('}')[1]] = field.text
+            data_records.append(record)
+
+        df = pd.DataFrame(data_records)
         return df
+
     except Exception as e:
         st.error(f"Failed to fetch data from service: {e}")
         return pd.DataFrame()
