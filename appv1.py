@@ -88,16 +88,20 @@ services = []
 if hostname and port and username and password:
     services = fetch_service_catalog(hostname, port, username, password, ssl_verify)
 
-service_names = [f"{srv['TechnicalName']} - {srv['TechnicalServiceName']}" for srv in services] if services else []
-selected_service = st.sidebar.selectbox("Select OData Service", service_names) if service_names else None
+# Create a mapping of display name to service details
+service_map = {f"{srv['TechnicalName']} - {srv['TechnicalServiceName']}": srv for srv in services}
 
-selected_entityset = None
-if selected_service:
-    selected_service_obj = next((srv for srv in services if srv['TechnicalName'] in selected_service), None)
-    if selected_service_obj:
-        service_name = selected_service_obj['TechnicalName']
-        entity_sets = fetch_entitysets(hostname, port, service_name, username, password, ssl_verify)
-        selected_entityset = st.sidebar.selectbox("Select EntitySet", entity_sets) if entity_sets else None
+selected_service_display = st.sidebar.selectbox("Select OData Service", list(service_map.keys())) if service_map else None
+entity_sets = []
+service_name = None
+
+if selected_service_display:
+    selected_service = service_map[selected_service_display]
+    service_name = selected_service['TechnicalName']
+    entity_sets = fetch_entitysets(hostname, port, service_name, username, password, ssl_verify)
+
+selected_entityset = st.sidebar.selectbox("Select EntitySet", entity_sets) if entity_sets else None
+
 
 st.title("BW/4HANA OData Data Analysis")
 
